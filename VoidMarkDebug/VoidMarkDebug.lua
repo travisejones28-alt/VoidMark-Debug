@@ -167,13 +167,13 @@ local function createUI()
     scroll:SetPoint("TOPLEFT",ui,"TOPLEFT",16,-104)
     scroll:SetPoint("BOTTOMRIGHT",ui,"BOTTOMRIGHT",-34,14)
     output=CreateFrame("EditBox",nil,scroll)
-    output:SetMultiLine(true)
-    output:SetFontObject(ChatFontNormal)
+    -- Forever client compatibility: guard optional EditBox methods.
+    if output.SetMultiLine then output:SetMultiLine(true) end
+    if output.SetFontObject then output:SetFontObject(ChatFontNormal) end
     output:SetWidth(690)
-    output:SetAutoFocus(false)
+    if output.SetAutoFocus then output:SetAutoFocus(false) end
     output:SetScript("OnEscapePressed",function(self) self:ClearFocus() end)
     output:SetScript("OnTextChanged",function(self)
-        -- EditBox:GetStringHeight is unavailable on some Classic/Forever clients.
         local value = self:GetText() or ""
         local _, breaks = value:gsub("\n", "\n")
         local estimate = math.max(300, (breaks + 1) * 15 + 30)
