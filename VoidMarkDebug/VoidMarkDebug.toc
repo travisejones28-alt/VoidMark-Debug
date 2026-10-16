@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: VoidMark Debug
+## Notes: Persistent Lua error recorder and copyable diagnostics.
+## Author: VoidMark
+## Version: 1.0.0
+## SavedVariables: VoidMarkDebugDB
+VoidMarkDebug.lua
