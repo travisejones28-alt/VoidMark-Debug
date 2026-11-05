@@ -3,7 +3,7 @@
 Standalone error collection addon for WoW Classic/Forever-style clients.
 
 ## Install
-Copy the **VoidMarkDebug** folder (containing `VoidMarkDebug.toc`) into your client's `Interface/AddOns`, or create a Windows junction to that inner folder. Use `/console scriptErrors 1` to also show the stock popup (optional).
+The repository root now directly contains `VoidMarkDebug.toc` and `VoidMarkDebug.lua`. Install it as an AddOns folder named **VoidMarkDebug**, or create a Windows junction named `VoidMarkDebug` pointing to this repository root. Do not install an additional nested folder. Use `/console scriptErrors 1` to also show the stock popup (optional).
 
 Commands: `/vmd` opens or hides the viewer; `/vmd report` selects a copyable report; `/vmd count` displays counts; `/vmd test` adds a synthetic test entry; `/vmd clear` removes captured entries.
 
