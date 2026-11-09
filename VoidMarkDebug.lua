@@ -1,10 +1,12 @@
 local addonName = ...
 local addon = CreateFrame("Frame")
-local DB, ui, output, status, filterBox
+local DB, ui, output, status, filterBox, indicator
+local toggle, refresh
+local sessionErrors = 0
 local priorHandler, recording = nil, false
 local bySignature = {}
 local LIMIT, MAXTEXT = 250, 5500
-local VERSION = "1.1.0-forever"
+local VERSION = "1.2.0-forever"
 
 local function now()
     if date then return date("%Y-%m-%d %H:%M:%S") end
@@ -31,6 +33,9 @@ local function init()
     DB.settings = type(DB.settings) == "table" and DB.settings or {}
     DB.session = (tonumber(DB.session) or 0) + 1
     DB.started = now()
+    if DB.settings.suppressBlizzard == nil then DB.settings.suppressBlizzard = true end
+    if DB.settings.notify == nil then DB.settings.notify = true end
+    sessionErrors = 0
     wipe(bySignature)
     for _, entry in ipairs(DB.entries) do
         if type(entry) == "table" and type(entry.key) == "string" then
@@ -60,7 +65,12 @@ local function record(message)
                 if removed then bySignature[removed.key] = nil end
             end
         end
-        if status then status:SetText("Errors: " .. tostring(#DB.entries) .. " groups") end
+        sessionErrors = sessionErrors + 1
+        if indicator and DB.settings.notify then
+            indicator.text:SetText("VMD  |cffff7777"..sessionErrors.."|r")
+            indicator:Show()
+        end
+        if status then status:SetText("Errors: " .. tostring(#DB.entries) .. " groups | Session: " .. sessionErrors) end
     end)
     recording = false
     return ok
@@ -68,6 +78,7 @@ end
 local handler
 handler = function(message)
     record(message)
+    if DB and DB.settings and DB.settings.suppressBlizzard then return end
     if priorHandler and priorHandler ~= handler then
         pcall(priorHandler, message)
     end
@@ -108,11 +119,11 @@ local function report(search, redacted)
     if found == 0 then lines[#lines+1] = "No matching errors." end
     return table.concat(lines, "\n")
 end
-local function refresh()
+refresh = function()
     if not output or not DB then return end
     output:SetText(report(filterBox and filterBox:GetText() or "", DB.settings.redact))
     output:HighlightText(0, 0)
-    if status then status:SetText("Error groups: " .. #DB.entries .. " | Session " .. DB.session) end
+    if status then status:SetText("Error groups: " .. #DB.entries .. " | Session errors: " .. sessionErrors) end
 end
 local function button(parent, text, x, width, fn)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
@@ -121,6 +132,35 @@ local function button(parent, text, x, width, fn)
     b:SetText(text)
     b:SetScript("OnClick", fn)
     return b
+end
+local function createIndicator()
+    if indicator then return end
+    indicator = CreateFrame("Button", "VoidMarkDebugIndicator", UIParent)
+    indicator:SetSize(88, 25)
+    indicator:SetPoint("TOP", UIParent, "TOP", 0, -110)
+    indicator:SetFrameStrata("HIGH")
+    indicator:SetMovable(true)
+    indicator:RegisterForDrag("LeftButton")
+    indicator:SetScript("OnDragStart", function(self)
+        if not InCombatLockdown or not InCombatLockdown() then self:StartMoving() end
+    end)
+    indicator:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+    local bg = indicator:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetTexture("Interface\\Buttons\\WHITE8X8")
+    bg:SetVertexColor(0.06, 0.06, 0.08, 0.82)
+    indicator.text = indicator:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    indicator.text:SetPoint("CENTER")
+    indicator.text:SetText("VMD  |cffff77770|r")
+    indicator:SetScript("OnClick", function() toggle() end)
+    indicator:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:SetText("VoidMark Debug")
+        GameTooltip:AddLine("Click: view errors  |  Drag: move", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    indicator:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    indicator:Hide()
 end
 local function createUI()
     if ui then return end
@@ -194,7 +234,7 @@ local function createUI()
     ui:Hide()
     refresh()
 end
-local function toggle()
+toggle = function()
     createUI()
     if ui:IsShown() then ui:Hide() else refresh(); ui:Show() end
 end
@@ -220,6 +260,14 @@ SlashCmdList.VOIDMARKDEBUG=function(command)
             local firstLine = tostring(e.message or ""):match("([^\r\n]+)") or ""
             print(string.format("%d. x%d [%s] %s", i, tonumber(e.count) or 0, tostring(e.addon or "?"), firstLine:sub(1, 180)))
         end
+    elseif cmd=="notify" then
+        DB.settings.notify = not DB.settings.notify
+        createIndicator()
+        if DB.settings.notify and sessionErrors > 0 then indicator:Show() else indicator:Hide() end
+        print("|cffb388ffVoidMark Debug:|r Indicator " .. (DB.settings.notify and "ON" or "OFF"))
+    elseif cmd=="blizzard" then
+        DB.settings.suppressBlizzard = not DB.settings.suppressBlizzard
+        print("|cffb388ffVoidMark Debug:|r Blizzard error handler " .. (DB.settings.suppressBlizzard and "SUPPRESSED" or "ENABLED"))
     elseif cmd=="count" then
         print("|cffb388ffVoidMark Debug:|r "..tostring(DB and #DB.entries or 0).." error groups.")
     elseif cmd=="test" then
@@ -234,9 +282,11 @@ addon:RegisterEvent("PLAYER_LOGIN")
 addon:SetScript("OnEvent",function(_,event,name)
     if event=="ADDON_LOADED" and name==addonName then
         init()
+        createIndicator()
         install()
     elseif event=="PLAYER_LOGIN" then
         if not DB then init() end
+        createIndicator()
         install()
     end
 end)
