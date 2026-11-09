@@ -2,8 +2,9 @@ local addonName = ...
 local addon = CreateFrame("Frame")
 local DB, ui, output, status, filterBox
 local priorHandler, recording = nil, false
+local bySignature = {}
 local LIMIT, MAXTEXT = 250, 5500
-local VERSION = "1.0.0"
+local VERSION = "1.1.0-forever"
 
 local function now()
     if date then return date("%Y-%m-%d %H:%M:%S") end
@@ -30,6 +31,12 @@ local function init()
     DB.settings = type(DB.settings) == "table" and DB.settings or {}
     DB.session = (tonumber(DB.session) or 0) + 1
     DB.started = now()
+    wipe(bySignature)
+    for _, entry in ipairs(DB.entries) do
+        if type(entry) == "table" and type(entry.key) == "string" then
+            bySignature[entry.key] = entry
+        end
+    end
 end
 local function record(message)
     if recording or not DB then return end
@@ -37,10 +44,7 @@ local function record(message)
     local ok = pcall(function()
         local raw = tostring(message or "(empty error)"):sub(1, MAXTEXT)
         local key = signature(raw)
-        local hit
-        for _, item in ipairs(DB.entries) do
-            if item.key == key then hit = item; break end
-        end
+        local hit = bySignature[key]
         if hit then
             hit.count = (tonumber(hit.count) or 1) + 1
             hit.last = now()
@@ -50,7 +54,11 @@ local function record(message)
             local item = { key=key, message=raw, first=now(), last=now(),
                 count=1, character=character(), session=DB.session, addon=owner(raw) }
             table.insert(DB.entries, 1, item)
-            if #DB.entries > LIMIT then table.remove(DB.entries) end
+            bySignature[key] = item
+            if #DB.entries > LIMIT then
+                local removed = table.remove(DB.entries)
+                if removed then bySignature[removed.key] = nil end
+            end
         end
         if status then status:SetText("Errors: " .. tostring(#DB.entries) .. " groups") end
     end)
@@ -116,7 +124,9 @@ local function button(parent, text, x, width, fn)
 end
 local function createUI()
     if ui then return end
-    ui = CreateFrame("Frame", "VoidMarkDebugWindow", UIParent, "BackdropTemplate")
+    -- Older Forever-derived clients may not provide BackdropTemplate.
+    local template = BackdropTemplateMixin and "BackdropTemplate" or nil
+    ui = CreateFrame("Frame", "VoidMarkDebugWindow", UIParent, template)
     ui:SetSize(760, 480)
     ui:SetPoint("CENTER")
     ui:SetFrameStrata("DIALOG")
@@ -148,6 +158,7 @@ local function createUI()
     button(ui,"Clear logs",226,100,function()
         if not DB then return end
         wipe(DB.entries)
+        wipe(bySignature)
         refresh()
     end)
     button(ui,"Redact: OFF",332,122,function(self)
@@ -193,10 +204,22 @@ SlashCmdList.VOIDMARKDEBUG=function(command)
     local cmd=tostring(command or ""):lower():match("^%s*(.-)%s*$")
     if cmd=="clear" then
         if DB then wipe(DB.entries) end
+        wipe(bySignature)
         refresh()
         print("|cffb388ffVoidMark Debug:|r Logs cleared.")
     elseif cmd=="report" or cmd=="export" then
         createUI(); refresh(); ui:Show(); output:SetFocus(); output:HighlightText()
+    elseif cmd=="top" then
+        if not DB then return end
+        local sorted = {}
+        for _, entry in ipairs(DB.entries) do sorted[#sorted+1] = entry end
+        table.sort(sorted, function(a,b) return (tonumber(a.count) or 0) > (tonumber(b.count) or 0) end)
+        print("|cffb388ffVoidMark Debug:|r Most frequent Lua errors:")
+        for i=1, math.min(5, #sorted) do
+            local e = sorted[i]
+            local firstLine = tostring(e.message or ""):match("([^\r\n]+)") or ""
+            print(string.format("%d. x%d [%s] %s", i, tonumber(e.count) or 0, tostring(e.addon or "?"), firstLine:sub(1, 180)))
+        end
     elseif cmd=="count" then
         print("|cffb388ffVoidMark Debug:|r "..tostring(DB and #DB.entries or 0).." error groups.")
     elseif cmd=="test" then
