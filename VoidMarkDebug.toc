@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: VoidMark Debug
-## Notes: Persistent Lua error recorder and copyable diagnostics.
+## Notes: WoW Forever Lua error recorder, frequency tracker, and copyable diagnostics.
 ## Author: VoidMark
-## Version: 1.0.0
+## Version: 1.1.0-forever
 ## SavedVariables: VoidMarkDebugDB
 VoidMarkDebug.lua
