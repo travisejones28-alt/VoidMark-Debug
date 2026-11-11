@@ -6,7 +6,8 @@ local sessionErrors = 0
 local priorHandler, recording = nil, false
 local bySignature = {}
 local LIMIT, MAXTEXT = 250, 5500
-local VERSION = "1.2.1-forever"
+local VERSION = "1.3.0-forever"
+local problemFrame
 
 local function now()
     if date then return date("%Y-%m-%d %H:%M:%S") end
@@ -47,6 +48,7 @@ local function init()
     DB = VoidMarkDebugDB
     DB.entries = type(DB.entries) == "table" and DB.entries or {}
     DB.settings = type(DB.settings) == "table" and DB.settings or {}
+    DB.reports = type(DB.reports) == "table" and DB.reports or {}
     DB.session = (tonumber(DB.session) or 0) + 1
     DB.started = now()
     if DB.settings.suppressBlizzard == nil then DB.settings.suppressBlizzard = true end
@@ -112,7 +114,7 @@ local function report(search, redacted)
     local lines = {
         "VoidMark Debug " .. VERSION .. " | " .. now(),
         "Client: " .. tostring(select(1, GetBuildInfo())) .. " | Build: " .. tostring(select(2, GetBuildInfo())),
-        "Session: " .. tostring(DB.session) .. " | Error groups: " .. tostring(#DB.entries),
+        "Session: " .. tostring(DB.session) .. " | Error groups: " .. tostring(#DB.entries) .. " | Problem reports: " .. tostring(#(DB.reports or {})),
         "Character: " .. (redacted and "[hidden]" or character()),
         "Note: Each WoW account/client has separate SavedVariables. Export each account separately.",
         "-----"
@@ -178,6 +180,77 @@ local function createIndicator()
     indicator:SetScript("OnLeave", function() GameTooltip:Hide() end)
     indicator:Hide()
 end
+-- Player-written problem reports (not Lua errors). WoW can't send them anywhere;
+-- they are saved in VoidMarkDebugDB.reports and VoidMark Warpath sends them.
+local function saveProblem(text)
+    text = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if text == "" or not DB then return false end
+    DB.reports = DB.reports or {}
+    table.insert(DB.reports, { text=text:sub(1, 2000), time=now(), character=character(), session=DB.session })
+    while #DB.reports > 50 do table.remove(DB.reports, 1) end
+    return true
+end
+local function showProblem()
+    if not problemFrame then
+        local template = BackdropTemplateMixin and "BackdropTemplate" or nil
+        local f = CreateFrame("Frame", "VoidMarkDebugProblem", UIParent, template)
+        problemFrame = f
+        f:SetSize(480, 320); f:SetPoint("CENTER"); f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", function(self) self:StartMoving() end)
+        f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+        if f.SetBackdrop then
+            f:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",
+                edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", edgeSize=16,
+                insets={left=4,right=4,top=4,bottom=4}})
+        end
+        if UISpecialFrames then table.insert(UISpecialFrames, "VoidMarkDebugProblem") end
+        local t = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        t:SetPoint("TOPLEFT", 16, -16); t:SetText("|cffb388ffREPORT A PROBLEM|r")
+        local close = CreateFrame("Button", nil, f, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", 0, 0)
+        local hint = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        hint:SetPoint("TOPLEFT", 16, -44); hint:SetWidth(448); hint:SetJustifyH("LEFT")
+        hint:SetText("What's wrong? Example: \"sound doesn't play\", \"Market window won't open\".")
+        local box = CreateFrame("Frame", nil, f, template)
+        box:SetPoint("TOPLEFT", 16, -70); box:SetPoint("BOTTOMRIGHT", -16, 82)
+        if box.SetBackdrop then
+            box:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8", edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",
+                edgeSize=12, insets={left=3,right=3,top=3,bottom=3}})
+            if box.SetBackdropColor then box:SetBackdropColor(0, 0, 0, 0.6) end
+        end
+        local sc = CreateFrame("ScrollFrame", "VoidMarkDebugProblemScroll", box, "UIPanelScrollFrameTemplate")
+        sc:SetPoint("TOPLEFT", 8, -8); sc:SetPoint("BOTTOMRIGHT", -28, 8)
+        local edit = CreateFrame("EditBox", nil, sc)
+        if edit.SetMultiLine then edit:SetMultiLine(true) end
+        if edit.SetFontObject then edit:SetFontObject(ChatFontNormal) end
+        if edit.SetMaxLetters then edit:SetMaxLetters(2000) end
+        if edit.SetAutoFocus then edit:SetAutoFocus(false) end
+        edit:SetWidth(400); edit:SetHeight(140)
+        edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+        sc:SetScrollChild(edit)
+        box:EnableMouse(true); box:SetScript("OnMouseDown", function() edit:SetFocus() end)
+        f.edit = edit
+        f.note = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        f.note:SetPoint("BOTTOMLEFT", 16, 56); f.note:SetWidth(448); f.note:SetJustifyH("LEFT")
+        local function submit(reload)
+            if not saveProblem(edit:GetText()) then f.note:SetText("|cffff7777Type what's wrong first.|r"); return end
+            edit:SetText(""); f:Hide()
+            print("|cffb388ffVoidMark Debug:|r Problem saved. Open VoidMark Warpath to send it" .. (reload and "." or " (after /reload or logging out)."))
+            if reload and ReloadUI then ReloadUI() end
+        end
+        local save = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+        save:SetSize(210, 28); save:SetPoint("BOTTOMLEFT", 16, 18); save:SetText("Save + Reload (send sooner)")
+        save:SetScript("OnClick", function() submit(true) end)
+        local later = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+        later:SetSize(120, 28); later:SetPoint("LEFT", save, "RIGHT", 8, 0); later:SetText("Save")
+        later:SetScript("OnClick", function() submit(false) end)
+        local cancel = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+        cancel:SetSize(96, 28); cancel:SetPoint("BOTTOMRIGHT", -16, 18); cancel:SetText("Cancel")
+        cancel:SetScript("OnClick", function() f:Hide() end)
+    end
+    problemFrame.note:SetText("Saved reports go out the next time VoidMark Warpath is opened.")
+    problemFrame:Show(); problemFrame.edit:SetFocus()
+end
 local function createUI()
     if ui then return end
     -- Older Forever-derived clients may not provide BackdropTemplate.
@@ -211,6 +284,9 @@ local function createUI()
         print("|cffb388ffVoidMark Debug:|r Report selected. Press Ctrl+C to copy, then paste it into ChatGPT.")
     end)
     button(ui,"Refresh",140,82,refresh)
+    local problemButton = CreateFrame("Button", nil, ui, "UIPanelButtonTemplate")
+    problemButton:SetSize(150, 24); problemButton:SetPoint("TOPRIGHT", ui, "TOPRIGHT", -36, -12)
+    problemButton:SetText("Report a problem"); problemButton:SetScript("OnClick", showProblem)
     button(ui,"Clear logs",226,100,function()
         if not DB then return end
         wipe(DB.entries)
@@ -263,6 +339,8 @@ SlashCmdList.VOIDMARKDEBUG=function(command)
         wipe(bySignature)
         refresh()
         print("|cffb388ffVoidMark Debug:|r Logs cleared.")
+    elseif cmd=="problem" or cmd=="bug" then
+        showProblem()
     elseif cmd=="report" or cmd=="export" then
         createUI(); refresh(); ui:Show(); output:SetFocus(); output:HighlightText()
     elseif cmd=="top" then
