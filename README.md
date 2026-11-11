@@ -18,3 +18,6 @@ Errors use a cached signature lookup to minimize overhead during error floods an
 
 ## Silent error mode (default in v1.2)
 VMD records errors without forwarding them to the prior Blizzard handler. A small clickable error-count indicator appears after the first captured error each session, and can be dragged. Click to view the report. /vmd notify toggles the counter, /vmd blizzard restores or suppresses forwarding. Preferences persist per account. Competing addons may replace the error handler after VMD loads. This does not fix underlying Lua errors.
+
+## Updates
+Install and update through VoidMark Warpath.
