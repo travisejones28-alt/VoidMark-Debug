@@ -6,7 +6,7 @@ local sessionErrors = 0
 local priorHandler, recording = nil, false
 local bySignature = {}
 local LIMIT, MAXTEXT = 250, 5500
-local VERSION = "1.3.0-forever"
+local VERSION = "1.3.1-forever"
 local problemFrame
 
 local function now()
@@ -235,11 +235,15 @@ local function showProblem()
         local function submit(reload)
             if not saveProblem(edit:GetText()) then f.note:SetText("|cffff7777Type what's wrong first.|r"); return end
             edit:SetText(""); f:Hide()
-            print("|cffb388ffVoidMark Debug:|r Problem saved. Open VoidMark Warpath to send it" .. (reload and "." or " (after /reload or logging out)."))
-            if reload and ReloadUI then ReloadUI() end
+            print("|cffb388ffVoidMark Debug:|r Problem saved. It goes out the next time VoidMark Warpath opens, after a /reload or logout.")
+            -- Addons can't call ReloadUI on this client (protected), so pre-type /reload for the player.
+            if reload then
+                if ChatFrame_OpenChat then ChatFrame_OpenChat("/reload")
+                else print("|cffb388ffVoidMark Debug:|r Type /reload to send it sooner.") end
+            end
         end
         local save = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        save:SetSize(210, 28); save:SetPoint("BOTTOMLEFT", 16, 18); save:SetText("Save + Reload (send sooner)")
+        save:SetSize(210, 28); save:SetPoint("BOTTOMLEFT", 16, 18); save:SetText("Save + /reload (send sooner)")
         save:SetScript("OnClick", function() submit(true) end)
         local later = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
         later:SetSize(120, 28); later:SetPoint("LEFT", save, "RIGHT", 8, 0); later:SetText("Save")
@@ -248,7 +252,7 @@ local function showProblem()
         cancel:SetSize(96, 28); cancel:SetPoint("BOTTOMRIGHT", -16, 18); cancel:SetText("Cancel")
         cancel:SetScript("OnClick", function() f:Hide() end)
     end
-    problemFrame.note:SetText("Saved reports go out the next time VoidMark Warpath is opened.")
+    problemFrame.note:SetText("Save + /reload puts /reload in your chat box - just press Enter.")
     problemFrame:Show(); problemFrame.edit:SetFocus()
 end
 local function createUI()
