@@ -6,16 +6,32 @@ local sessionErrors = 0
 local priorHandler, recording = nil, false
 local bySignature = {}
 local LIMIT, MAXTEXT = 250, 5500
-local VERSION = "1.2.0-forever"
+local VERSION = "1.2.1-forever"
 
 local function now()
     if date then return date("%Y-%m-%d %H:%M:%S") end
     return tostring(time and time() or "?")
 end
+local function readable(v)
+    if issecretvalue then
+        local ok, secret = pcall(issecretvalue, v)
+        if not ok or secret then return nil end
+    end
+    return type(v) == "string" and v ~= "" and v or nil
+end
+-- Forever names are "First Surname"; UnitName returns the surname second.
 local function character()
-    local name = UnitName and UnitName("player") or "Unknown"
-    local realm = GetRealmName and GetRealmName() or "Unknown"
-    return tostring(name or "Unknown") .. "-" .. tostring(realm or "Unknown")
+    local first, second
+    if UnitName then
+        local ok, a, b = pcall(UnitName, "player")
+        if ok then first, second = readable(a), readable(b) end
+    end
+    local realm = GetRealmName and readable(GetRealmName()) or nil
+    local name = first or "Unknown"
+    if second and (not realm or second:gsub("%s", ""):lower() ~= realm:gsub("%s", ""):lower()) then
+        name = name .. " " .. second
+    end
+    return name .. "-" .. (realm or "Unknown")
 end
 local function owner(message)
     local path = tostring(message or ""):match("([%w_%-]+)\\[^\\\r\n]+%.lua")

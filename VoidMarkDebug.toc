@@ -2,6 +2,6 @@
 ## Title: VoidMark Debug
 ## Notes: WoW Forever Lua error recorder, frequency tracker, and copyable diagnostics.
 ## Author: VoidMark
-## Version: 1.2.0-forever
+## Version: 1.2.1-forever
 ## SavedVariables: VoidMarkDebugDB
 VoidMarkDebug.lua
