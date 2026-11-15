@@ -6,7 +6,7 @@ local sessionErrors = 0
 local priorHandler, recording = nil, false
 local bySignature = {}
 local LIMIT, MAXTEXT = 250, 5500
-local VERSION = "1.3.1-forever"
+local VERSION = "1.3.2-forever"
 local problemFrame
 
 local function now()
