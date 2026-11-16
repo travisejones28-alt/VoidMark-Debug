@@ -3,7 +3,8 @@
 ## Notes: WoW Forever Lua error recorder, problem reports, and copyable diagnostics.
 ## Author: VoidMark
 ## Version: 1.3.3-forever
-## SavedVariables: VoidMarkDebugDB
+## SavedVariables: VoidMarkDebugDB, VoidMarkDebugUsage
 Help.lua
 VoidMarkDebug.lua
 AutoInvite.lua
+Usage.lua
