@@ -291,6 +291,10 @@ local function createUI()
     local problemButton = CreateFrame("Button", nil, ui, "UIPanelButtonTemplate")
     problemButton:SetSize(150, 24); problemButton:SetPoint("TOPRIGHT", ui, "TOPRIGHT", -36, -12)
     problemButton:SetText("Report a problem"); problemButton:SetScript("OnClick", showProblem)
+    local helpButton = CreateFrame("Button", nil, ui, "UIPanelButtonTemplate")
+    helpButton:SetSize(60, 24); helpButton:SetPoint("RIGHT", problemButton, "LEFT", -6, 0)
+    helpButton:SetText("Help"); helpButton:SetScript("OnClick", function() if _G.VoidMarkDebugHelp then _G.VoidMarkDebugHelp.Open() end end)
+    ui.helpButton = helpButton
     button(ui,"Clear logs",226,100,function()
         if not DB then return end
         wipe(DB.entries)
@@ -338,7 +342,10 @@ SLASH_VOIDMARKDEBUG1="/vmd"
 SLASH_VOIDMARKDEBUG2="/voidmarkdebug"
 SlashCmdList.VOIDMARKDEBUG=function(command)
     local cmd=tostring(command or ""):lower():match("^%s*(.-)%s*$")
-    if cmd=="clear" then
+    local word,rest=cmd:match("^(%S+)%s*(.-)$")
+    if (word=="help" or word=="faq" or word=="commands") and _G.VoidMarkDebugHelp then
+        _G.VoidMarkDebugHelp.Open(rest~="" and rest or nil)
+    elseif cmd=="clear" then
         if DB then wipe(DB.entries) end
         wipe(bySignature)
         refresh()

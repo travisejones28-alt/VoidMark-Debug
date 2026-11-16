@@ -1,0 +1,13 @@
+name: Validate Debug
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - run: for f in *.lua; do luac5.1 -p "$f"; done
+      - run: lua5.1 help_test.lua
+      - run: lua5.1 auto_invite_test.lua

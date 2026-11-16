@@ -5,6 +5,8 @@ Standalone Lua error collection addon for **WoW Forever (Interface 16001)**. The
 ## Install
 The repository root now directly contains `VoidMarkDebug.toc` and `VoidMarkDebug.lua`. Install it as an AddOns folder named **VoidMarkDebug**, or create a Windows junction named `VoidMarkDebug` pointing to this repository root. Do not install an additional nested folder. Use `/console scriptErrors 1` to also show the stock popup (optional).
 
+Help: the **Help** button in the Debug window, or `/vmd help`, opens a searchable FAQ with every command (1.3.3).
+
 Commands: `/vmd` opens or hides the viewer; `/vmd report` selects a copyable report; `/vmd count` displays counts; `/vmd top` shows the five most frequent errors; `/vmd notify` toggles the on-screen indicator; `/vmd blizzard` toggles Blizzard error popups; `/vmd test` adds a synthetic test entry; `/vmd clear` removes captured entries.
 
 Errors use a cached signature lookup to minimize overhead during error floods and are grouped by normalized message and captured with the stack text delivered to WoW's Lua error handler. SavedVariables persist up to 250 distinct groups across reloads. The full report can be selected and copied with Ctrl+C. Filtering and optional character-name redaction are provided. Redaction is best-effort, so review reports before sharing.
